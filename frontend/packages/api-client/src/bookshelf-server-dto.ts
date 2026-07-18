@@ -3,15 +3,6 @@
 * bookshelf-server-dto.ts
 */
 
-export const APP = 'bookshelf-server';
-
-export interface  BookListResult {
-
-
-    //// Books (ordered by title) / 图书列表（按书名排序）
-    list: Array<BookDetail>;
-}
-
 export class  GetBookReq {
 
 
@@ -28,6 +19,15 @@ export class  ListBooksReq {
 
     // Optional author substring filter (case-insensitive; null/blank = all books) / 可选作者子串过滤（不区分大小写；null/空 = 全部）
     authorContains?: string;
+}
+
+export const APP = 'bookshelf-server';
+
+export interface  BookCountResult {
+
+
+    //// Total number of books / 图书总数
+    total: number;
 }
 
 export interface  BookDetail {
@@ -57,10 +57,9 @@ export interface  BookDetail {
     publishedYear: number;
 }
 
-export interface  BookCountResult {
+export interface  BookListResult {
 
 
-    //// Total number of books / 图书总数
-    total: number;
+    //// Books (ordered by title) / 图书列表（按书名排序）
+    list: Array<BookDetail>;
 }
-
