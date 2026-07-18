@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Global base. Design tokens live in tailwind.config.cjs (shared cross-platform via NativeWind).
+ * Only shell-level styles that can't be expressed as RN component classNames live here.
+ */
+html,
+body {
+  margin: 0;
+  background: #f4f6fa;
+  color: #1e293b;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Phone column: full width on mobile, centered ~430px "phone frame" on desktop. Fixed viewport
+   height + flex column so in-screen ScrollViews scroll internally and the tab bar sticks to the
+   bottom of the column. */
+.phone-shell {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background: #f4f6fa;
+}

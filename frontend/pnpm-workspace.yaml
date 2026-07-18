@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+# Native/build toolchains that ship postinstall build steps (Expo, Next, sharp).
+allowBuilds:
+  '@parcel/watcher': true
+  '@swc/core': true
+  esbuild: true
+  sharp: true

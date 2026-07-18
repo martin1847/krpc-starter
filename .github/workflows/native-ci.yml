@@ -1,0 +1,70 @@
+# native-ci — build the backend Quarkus native image (build stage only; no registry push wired).
+#
+# ubuntu-latest runners ship Docker, so Quarkus `-Dquarkus.native.container-build=true` (Mandrel
+# builder image) works out of the box. This template builds the native image to prove it compiles;
+# the push stage is left as a commented placeholder — fill in your registry + a secret before enabling.
+#
+# Native builds are memory-heavy (~8GB peak); manual trigger only in the template.
+name: native-ci
+run-name: native-ci ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: native-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  native:
+    name: bookshelf-server native build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Build the native image (container build via the Mandrel builder). No push.
+      - name: Native build
+        run: |
+          set -euo pipefail
+          ./gradlew :bookshelf-server:build -x test \
+            -Dquarkus.native.enabled=true \
+            -Dquarkus.package.jar.enabled=false \
+            -Dquarkus.native.container-build=true \
+            --no-daemon
+
+      # ── Push stage (DISABLED template) ──────────────────────────────────────
+      # To publish the image, uncomment and provide your own registry + a repo secret. Inject the
+      # password via env (jib reads QUARKUS_CONTAINER_IMAGE_PASSWORD) — never on the command line.
+      #
+      # - name: Native build + push image
+      #   env:
+      #     QUARKUS_CONTAINER_IMAGE_USERNAME: ci-deploy
+      #     QUARKUS_CONTAINER_IMAGE_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      #   run: |
+      #     TAG="$(date -u +%Y%m%d-%H%M)-${GITHUB_SHA::7}"
+      #     ./gradlew :bookshelf-server:build -x test \
+      #       -Dquarkus.native.enabled=true \
+      #       -Dquarkus.package.jar.enabled=false \
+      #       -Dquarkus.native.container-build=true \
+      #       -Dquarkus.container-image.build=true \
+      #       -Dquarkus.container-image.push=true \
+      #       -Dquarkus.container-image.registry=registry.example.com \
+      #       -Dquarkus.container-image.group=starter \
+      #       -Dquarkus.container-image.tag="${TAG}" \
+      #       --no-daemon

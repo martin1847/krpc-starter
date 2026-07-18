@@ -1,0 +1,29 @@
+# dev-only PostgreSQL for bookshelf-server. NOT for production.
+#
+# Isolated on purpose so it never collides with another local Postgres:
+#   - project name `bookshelf-starter` (the `name:` key)
+#   - host port 5435 (container still listens on 5432 internally)
+#   - container name bookshelf-postgres
+# The credentials below are a THROWAWAY dev default (override with a .env if you like). The app
+# reads the password from QUARKUS_DATASOURCE_PASSWORD in deployed environments — never commit a real one.
+name: bookshelf-starter
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: bookshelf-postgres
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-bookshelf}"
+      POSTGRES_USER: "${POSTGRES_USER:-bookshelf}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-bookshelf_dev}"
+    ports:
+      - "5435:5432"
+    volumes:
+      # Application tables are created by Flyway at app startup (quarkus.flyway.migrate-at-start),
+      # NOT here. This hook is a placeholder for any one-time superuser setup (extensions, roles).
+      - ./db/init/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bookshelf} -d ${POSTGRES_DB:-bookshelf}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

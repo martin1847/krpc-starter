@@ -1,0 +1,48 @@
+plugins {
+    // Quarkus plugin: build/run the app (quarkusDev / quarkusBuild / native build).
+    id 'io.quarkus' version "$quarkusVersion"
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+dependencies {
+    implementation platform("io.quarkus.platform:quarkus-bom:${quarkusVersion}")
+
+    implementation project(':bookshelf-api')
+    // krpc Quarkus integration: auto-discovers @RpcService impls and starts the gRPC server (:50051).
+    implementation "tech.krpc:rpc-server-quarkus:${krpcVersion}"
+    // krpc HTTP gateway: serves the plain-HTTP surface (/agent/discover, /agent/invoke, and — when
+    // KRPC_MCP=true — /mcp) on the Quarkus HTTP port (:8080).
+    implementation "tech.krpc:http-server:${krpcVersion}"
+    // ext-rpc 1.0.5 = the Quarkus extension (@RpcService reflective registration + client config).
+    // Its transitive rpc-client is already 1.1.1 → no consumer force needed (clean state).
+    implementation "tech.krpc.ext:ext-rpc:${extRpcVersion}"
+    // ext-mybatis = @Inject mapper + QuarkusDataSourceFactory bridge + built-in PG paging interceptor.
+    implementation "tech.krpc.ext:ext-mybatis:${extMybatisVersion}"
+
+    implementation "io.quarkus:quarkus-arc"                  // CDI: @ApplicationScoped
+    implementation "io.quarkus:quarkus-netty"                // krpc/grpc transport needs netty
+    implementation "io.quarkus:quarkus-hibernate-validator"  // @Valid / @NotBlank request validation
+    implementation "io.quarkus:quarkus-agroal"               // connection pool + JTA (@Transactional)
+    implementation "io.quarkus:quarkus-jdbc-postgresql"      // PostgreSQL driver
+    implementation "io.quarkus:quarkus-flyway"               // runs db/migration/V*.sql at startup
+
+    // OpenTelemetry (vendor-neutral: OTel API/SDK + OTLP/logging exporter only, no vendor SDK).
+    // krpc 1.1.1 ships a built-in server interceptor — spans appear with ZERO hand-written filter.
+    implementation "io.quarkus:quarkus-opentelemetry"                                 // auto-instruments JDBC + injects traceId/spanId into MDC
+    implementation "io.opentelemetry:opentelemetry-exporter-logging"                  // dev: print spans to stdout (no Jaeger needed)
+    implementation "io.opentelemetry.instrumentation:opentelemetry-jdbc:2.5.0-alpha"  // JDBC datasource auto-instrumentation
+
+    // Tests: @QuarkusTest + @TestTransaction against the dev PG (rolls back, never pollutes data).
+    testImplementation "io.quarkus:quarkus-junit5"
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'   // krpc needs method parameter names retained
+}
+
+test {
+    useJUnitPlatform()
+}

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.bookshelf.server.mapper.BookshelfMapper">
+
+    <!-- mapUnderscoreToCamelCase=true → price_cents→priceCents etc.; resultType uses the typeAlias. -->
+    <select id="getBook" resultType="BookRow">
+        select id, title, author, isbn, price_cents, published_year
+        from book
+        where id = #{id}
+    </select>
+
+    <!-- Optional case-insensitive author filter; ordered by title for a stable UI. -->
+    <select id="listBooks" resultType="BookRow">
+        select id, title, author, isbn, price_cents, published_year
+        from book
+        <if test="authorContains != null">
+            where author ilike '%' || #{authorContains} || '%'
+        </if>
+        order by title, id
+    </select>
+
+    <select id="countBooks" resultType="long">
+        select count(*) from book
+    </select>
+
+</mapper>

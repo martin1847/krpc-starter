@@ -1,0 +1,70 @@
+# Frontend CI — PR + trunk gate for frontend/. Pure Node, no JDK: typecheck, lint, tests,
+# dependency boundaries, DS-drift. Secret scanning is the repo-wide secret-scan workflow;
+# api-client freshness is its own JDK job (api-client-freshness.yml).
+name: frontend-ci
+run-name: frontend-ci ${{ github.sha }}
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  gate:
+    name: typecheck + lint + test + boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      # Architectural boundaries: only packages/api may talk to the backend; app/apps must not
+      # import @krpc-starter/api-client or a bare HTTP client; core must not depend on the UI layer.
+      - name: Dependency boundaries
+        run: pnpm depcruise
+
+      # Runtime color mirror (theme.ts) must match the tailwind tokens.
+      - name: DS drift gate
+        run: pnpm ds:check
+
+      - name: Test
+        run: pnpm test

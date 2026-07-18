@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "krpc Front Starter",
+    "slug": "krpc-front-starter",
+    "scheme": "krpcstarter",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "tech.krpc.starter"
+    },
+    "android": {
+      "package": "tech.krpc.starter"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

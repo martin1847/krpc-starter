@@ -1,0 +1,39 @@
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+
+    <properties>
+        <property name="SqlXmlFolder" value="/mapper"/>
+    </properties>
+
+    <settings>
+        <setting name="useGeneratedKeys" value="true"/>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <setting name="defaultStatementTimeout" value="25"/>
+    </settings>
+
+    <typeAliases>
+        <package name="com.example.bookshelf.server.model"/>
+    </typeAliases>
+
+    <!-- PG physical paging: ext-mybatis ships tech.krpc.mybatis.PostgresPagingInterceptor. -->
+    <plugins>
+        <plugin interceptor="tech.krpc.mybatis.PostgresPagingInterceptor"/>
+    </plugins>
+
+    <!-- Transactions are Quarkus's (JTA / @Transactional); the datasource is bridged from Quarkus. -->
+    <environments default="q">
+        <environment id="q">
+            <transactionManager type="MANAGED">
+                <property name="closeConnection" value="true"/>
+            </transactionManager>
+            <dataSource type="tech.krpc.mybatis.runtime.bridge.QuarkusDataSourceFactory"/>
+        </environment>
+    </environments>
+
+    <mappers>
+        <package name="com.example.bookshelf.server.mapper"/>
+    </mappers>
+
+</configuration>

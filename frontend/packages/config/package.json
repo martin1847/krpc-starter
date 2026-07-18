@@ -1,0 +1,6 @@
+{
+  "name": "@krpc-starter/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Home for shared tsconfig / eslint / prettier presets."
+}

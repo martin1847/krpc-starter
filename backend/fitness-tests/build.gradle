@@ -1,0 +1,19 @@
+// Architecture fitness gate (fitness functions) — turns three whole-stack laws into CI gates that
+// actually break this repo. ArchUnit imports the *-api contract bytecode from the test classpath
+// and analyses it statically. Depends ONLY on *-api (R3 is literally "api must not touch server").
+// No Quarkus, no japicmp, no publishable artifact. Runs as part of `./gradlew test`.
+
+dependencies {
+    // Every *-api contract module — ArchUnit needs their compiled bytecode on the classpath.
+    // (FitnessScopeGuardTest enforces this list matches settings.gradle's registered *-api set.)
+    testImplementation project(':bookshelf-api')
+
+    // ArchUnit core (plain @Test driver) + JUnit 5.
+    testImplementation 'com.tngtech.archunit:archunit:1.4.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}

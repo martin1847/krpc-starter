@@ -1,0 +1,22 @@
+// Code-generation tool module: runs krpc's ext-rpc-gen over the *-api contracts to emit the TS
+// client. Not published, not on any *-api contract jar's classpath — a pure build-time tool.
+dependencies {
+    // Compiled contract classes (@UnsafeWeb @RpcService interfaces + DTOs) for the generator to scan.
+    // Only @UnsafeWeb services emit TS; add each frontend-facing *-api here.
+    implementation project(':bookshelf-api')
+    // krpc official generator: tech.krpc.ext.gen.Gen.genTypescript + FreeMarker templates.
+    implementation "tech.krpc.ext:ext-rpc-gen:${extRpcGenVersion}"
+}
+
+// :ts-gen:genTs — run GenTsMain (basePkg=com.example, app=bookshelf-server) → *-service.ts + DTOs.
+// Output dir: -PtsOutDir=<abs path> (default build/generated-ts/src). gen-ts.sh points it at the package src/.
+tasks.register('genTs', JavaExec) {
+    group = 'codegen'
+    description = 'Generate the @starter/api-client TS from *-api (@UnsafeWeb @RpcService) via krpc ext-rpc-gen'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.tsgen.GenTsMain'
+    def outDir = (project.findProperty('tsOutDir')
+            ?: layout.buildDirectory.dir('generated-ts/src').get().asFile.path).toString()
+    args = ['bookshelf-server', outDir]
+    doFirst { new File(outDir).mkdirs() }
+}

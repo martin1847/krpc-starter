@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@krpc-starter/api": ["../../packages/api/src/index.ts"],
+      "@krpc-starter/app": ["../../packages/app/src/index.ts"],
+      "@krpc-starter/core": ["../../packages/core/src/index.ts"],
+      "react-native": ["./node_modules/react-native"],
+      "react-native/*": ["./node_modules/react-native/*"]
+    },
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "ES2024.Promise"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "nativewind",
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "moduleResolution": "Bundler"
+  },
+  "include": ["nativewind-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

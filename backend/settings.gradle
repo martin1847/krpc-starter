@@ -1,0 +1,23 @@
+rootProject.name = 'krpc-service-starter'
+
+// One example domain, laid out as krpc's contract-first convention prescribes:
+//   <name>-api    —— the contract (interface + DTOs). SINGLE SOURCE OF TRUTH for the
+//                    whole stack; the TS client is generated from it.
+//   <name>-server —— the implementation (RpcResult impl, MyBatis, Flyway, tests).
+// The gradle project path mirrors the directory; the published coordinate is the leaf name.
+include 'bookshelf-api'
+include 'bookshelf-server'
+
+// Build-time TS generator (not published, not on any contract jar's classpath):
+// runs krpc ext-rpc-gen over the *-api contracts to emit the @starter/api-client TS.
+include 'ts-gen'
+
+// Architecture fitness gate (ArchUnit): depends ONLY on the *-api contract modules and
+// scans their bytecode for the three laws (boxed DTO fields / no floating-point money /
+// api must not depend on server). No publishable artifact, no Quarkus, no japicmp.
+include 'fitness-tests'
+
+// Add a new service by dropping in two modules and registering them here, e.g.:
+//   include 'inventory-api'; include 'inventory-server'
+// Then add `testImplementation project(':inventory-api')` to fitness-tests/build.gradle
+// (the FitnessScopeGuardTest enforces that every registered *-api is scanned).

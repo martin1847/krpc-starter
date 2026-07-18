@@ -1,0 +1,60 @@
+# api-client freshness gate — the committed frontend/packages/api-client MUST equal what the backend
+# generator produces from the *-api contracts (the whole-stack single source of truth). Same family
+# as the DS-drift gate: a deterministic regenerate-and-diff. If someone edits the *-api contract but
+# forgets to regenerate the client (or hand-edits the generated client), this fails the PR.
+#
+# The generator output is deterministic (scripts/gen-ts.sh strips per-run timestamps + validation
+# decorators), so a clean regenerate is a no-op diff.
+name: api-client-freshness
+run-name: api-client-freshness ${{ github.sha }}
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/packages/api-client/**"
+      - ".github/workflows/api-client-freshness.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "frontend/packages/api-client/**"
+      - ".github/workflows/api-client-freshness.yml"
+
+concurrency:
+  group: api-client-freshness-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    name: regenerate api-client + diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Regenerate the committed client from the contracts (no DB / server boot needed — the
+      # generator only compiles the *-api module + scans its bytecode).
+      - name: Regenerate @krpc-starter/api-client
+        working-directory: backend
+        run: bash scripts/gen-ts.sh ../frontend/packages/api-client
+
+      # Any drift → non-zero diff → fail. The fix is to commit the regenerated client.
+      - name: Fail on drift
+        run: |
+          if ! git diff --exit-code -- frontend/packages/api-client; then
+            echo "::error::frontend/packages/api-client is stale. Run 'cd backend && bash scripts/gen-ts.sh ../frontend/packages/api-client' and commit the result."
+            exit 1
+          fi

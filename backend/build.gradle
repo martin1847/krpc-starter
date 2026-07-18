@@ -1,0 +1,181 @@
+plugins {
+    // API-compatibility gate plugin. `apply false` only puts the JapicmpTask type on the root
+    // buildscript classpath (referenced below); each *-api module applies it in its own plugins{}.
+    id 'me.champeau.gradle.japicmp' version '0.4.3' apply false
+}
+
+// Root build: uniform Java 21 + Maven Central for every module. Each module adds its own krpc deps.
+subprojects {
+    apply plugin: 'java'
+    java {
+        toolchain { languageVersion = JavaLanguageVersion.of(21) }  // krpc needs JDK 21 + virtual threads
+    }
+    repositories {
+        mavenCentral()   // krpc 1.1.1 / ext-rpc 1.0.5 / ext-mybatis 1.0.2 are all on Central
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Containerization (Quarkus jib). Shared across every *-server module, DRY'd here.
+// Only touches real server modules (not *-api / ts-gen). Per-server differences (exposed
+// port) live in each server's application.properties (quarkus.jib.ports).
+//
+// NOTE — this is the "clean state" the README calls out: with ext-rpc 1.0.5 the transitive
+// rpc-client already resolves to 1.1.1 (same as krpcVersion), so there is NO consumer-side
+// `constraints { rpc-client }` force / io.grpc pin here. Earlier ext-rpc lines needed one to
+// restore the built-in OTel client interceptor; 1.0.5 removed the skew. Keep this block force-free.
+// ──────────────────────────────────────────────────────────────────────────
+def serverProjects = [':bookshelf-server']
+configure(serverProjects.collect { project(it) }) {
+    plugins.withId('io.quarkus') {
+        dependencies {
+            // jib containerization extension (version managed by each server's quarkus-bom platform)
+            implementation 'io.quarkus:quarkus-container-image-jib'
+        }
+        quarkus {
+            quarkusBuildProperties.put('quarkus.container-image.group', 'starter')
+            quarkusBuildProperties.put('quarkus.container-image.tag', 'dev')
+            quarkusBuildProperties.put('quarkus.jib.base-jvm-image',
+                'registry.access.redhat.com/ubi9/openjdk-21-runtime:1.21')
+        }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Vendor observability-SDK import guard: application code may depend on OTel API/SDK + OTLP
+// only, never a vendor observability SDK (Datadog / New Relic / Sentry / ...). Swapping the
+// backend must not mean re-instrumenting — vendor differences stay in the Collector/exporter
+// layer. Mechanism: resolve each module's compile+runtime classpath, fail on a forbidden group
+// prefix. io.opentelemetry.* is the vendor-neutral allowlist; only real vendor SDK coordinates
+// are named, so zero false positives.
+// ──────────────────────────────────────────────────────────────────────────
+def forbiddenObsGroups = [
+    'com.datadoghq', 'com.newrelic', 'co.elastic.apm', 'io.sentry', 'com.sentry',
+    'io.honeycomb', 'com.dynatrace', 'com.appdynamics', 'com.splunk', 'com.wavefront',
+]
+
+tasks.register('observabilityImportGuard') {
+    group = 'verification'
+    description = 'Fail build if any module depends on a vendor observability SDK (OTel API/SDK only).'
+    doLast {
+        def violations = []
+        subprojects.each { sp ->
+            ['compileClasspath', 'runtimeClasspath'].each { cfgName ->
+                def cfg = sp.configurations.findByName(cfgName)
+                if (cfg == null || !cfg.canBeResolved) {
+                    return
+                }
+                cfg.resolvedConfiguration.lenientConfiguration.allModuleDependencies.each { dep ->
+                    def group = dep.moduleGroup
+                    if (forbiddenObsGroups.any { group == it || group.startsWith(it + '.') }) {
+                        violations << "${sp.path} [${cfgName}] → ${group}:${dep.moduleName}:${dep.moduleVersion}"
+                    }
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException(
+                "Vendor observability SDK on the classpath (use OTel API/SDK + OTLP only):\n  "
+                    + violations.unique().join('\n  '))
+        }
+        logger.lifecycle('observabilityImportGuard: OK — no vendor observability SDK on any module classpath.')
+    }
+}
+
+// Local ./gradlew check / build enforces it (each module's check depends on it).
+subprojects {
+    tasks.matching { it.name == 'check' }.configureEach {
+        dependsOn(':observabilityImportGuard')
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// API-compatibility gate (japicmp): compares each *-api ABI against a git baseline ref.
+//   binary-incompatible change (removed/changed method, removed field) → FAIL;
+//   additive (new method/field/class, incl. a new @RpcService interface method) → PASS.
+// failOnModification=true means "binary-incompatible → red"; adding a method to an interface is
+// source-incompatible but binary-compatible, and in a krpc contract the server impl + TS client
+// are regenerated from the same source, so it is additive → allowed (contract-gate semantics).
+//
+// Mechanism: a throwaway detached git worktree at the baseline ref + a nested gradle build of the
+// *-api baseline jar, compared against the current jar. NOT wired into `check`/`build` (a worktree
+// per build is heavy) — it is a standalone task + an explicit CI step. Needs the baseline ref to
+// exist (CI fetches origin/main on a PR); on a fresh repo with no baseline, simply don't run it.
+// ──────────────────────────────────────────────────────────────────────────
+def apiProjects = [':bookshelf-api']
+def japicmpBaselineRef = (project.findProperty('japicmpBaselineRef') ?: 'origin/main').toString()
+
+// Gradle 9: no project.exec inside a task action — use a typed task with injected ExecOperations.
+abstract class JapicmpBaselineTask extends DefaultTask {
+    @javax.inject.Inject abstract org.gradle.process.ExecOperations getExecOps()
+    @org.gradle.api.tasks.Internal abstract org.gradle.api.provider.Property<String> getBaselineRef()
+    @org.gradle.api.tasks.Internal abstract org.gradle.api.file.DirectoryProperty getWorktreeDir()
+    @org.gradle.api.tasks.Internal abstract org.gradle.api.file.DirectoryProperty getBaselineOutDir()
+    @org.gradle.api.tasks.Internal abstract org.gradle.api.provider.ListProperty<String> getApiJarTaskPaths()
+    @org.gradle.api.tasks.Internal abstract org.gradle.api.provider.MapProperty<String, String> getModulePaths()
+
+    @org.gradle.api.tasks.TaskAction
+    void buildBaseline() {
+        def wt = worktreeDir.get().asFile
+        def out = baselineOutDir.get().asFile
+        if (wt.exists()) {
+            execOps.exec { it.commandLine = ['git', 'worktree', 'remove', '--force', wt.absolutePath]; it.ignoreExitValue = true }
+            wt.deleteDir()
+        }
+        execOps.exec { it.commandLine = ['git', 'worktree', 'prune'] }
+        execOps.exec { it.commandLine = ['git', 'worktree', 'add', '--detach', wt.absolutePath, baselineRef.get()] }
+        try {
+            execOps.exec {
+                it.workingDir = wt
+                it.commandLine = ['./gradlew', '--no-daemon', '-q'] + apiJarTaskPaths.get()
+            }
+            if (out.exists()) { out.deleteDir() }
+            out.mkdirs()
+            modulePaths.get().each { name, rel ->
+                def libs = new File(wt, "${rel}/build/libs")
+                def jars = ((libs.listFiles() ?: new File[0]) as List).findAll { it.name.endsWith('.jar') }.sort { it.name.length() }
+                if (jars.isEmpty()) {
+                    throw new org.gradle.api.GradleException("japicmp baseline: no jar built for ${name} under ${libs}")
+                }
+                java.nio.file.Files.copy(jars[0].toPath(), new File(out, "${name}-baseline.jar").toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            execOps.exec { it.commandLine = ['git', 'worktree', 'remove', '--force', wt.absolutePath]; it.ignoreExitValue = true }
+            wt.deleteDir()
+        }
+    }
+}
+
+tasks.register('japicmpBaseline', JapicmpBaselineTask) {
+    group = 'verification'
+    description = "Build baseline *-api jars from ${japicmpBaselineRef} (detached git worktree + nested :*-api:jar)."
+    baselineRef.set(japicmpBaselineRef)
+    worktreeDir.set(layout.buildDirectory.dir('japicmp/worktree'))
+    baselineOutDir.set(layout.buildDirectory.dir('japicmp/baseline'))
+    apiJarTaskPaths.set(apiProjects.collect { "${it}:jar".toString() })
+    modulePaths.set(apiProjects.collectEntries { p -> [(project(p).name): p.substring(1).replace(':', '/')] })
+    outputs.upToDateWhen { false }   // baseline ref can move; always rebuild
+}
+
+configure(apiProjects.collect { project(it) }) {
+    tasks.register('japicmpApi', me.champeau.gradle.japicmp.JapicmpTask) {
+        group = 'verification'
+        description = "Compare ${project.name} ABI vs ${japicmpBaselineRef} baseline (fail on binary-incompatible; additive OK)."
+        dependsOn rootProject.tasks.named('japicmpBaseline'), tasks.named('jar')
+        oldArchives.from(rootProject.layout.buildDirectory.file("japicmp/baseline/${project.name}-baseline.jar"))
+        newArchives.from(tasks.named('jar').flatMap { it.archiveFile })
+        oldClasspath.from(configurations.named('compileClasspath'))
+        newClasspath.from(configurations.named('compileClasspath'))
+        failOnModification = true         // binary-incompatible → fail; additive (incl. new interface method) → pass
+        ignoreMissingClasses = true       // krpc/jakarta types resolved via classpath; ignore stragglers
+        onlyModified = true
+        txtOutputFile = layout.buildDirectory.file("reports/japicmp/${project.name}.txt")
+    }
+}
+
+tasks.register('japicmp') {
+    group = 'verification'
+    description = 'API compatibility gate: fail on any *-api binary-incompatible change vs baseline.'
+    dependsOn apiProjects.collect { "${it}:japicmpApi" }
+}

@@ -1,0 +1,87 @@
+# Backend CI — PR + trunk gate for backend/. JDK 21 build + tests (@QuarkusTest) against a throwaway
+# Postgres service container, plus the ArchUnit fitness laws and the vendor-observability import
+# guard. This is the workflow that makes the fitness gates fail a PR.
+#
+# NOTE: the japicmp (api-compat) gate ships as a standalone gradle task (`./gradlew japicmp`) but is
+# NOT wired here: its git-worktree baseline mechanism assumes the gradle root is the git root, which
+# holds once the backend is split into its own repo (see the Graduation path in the root README), not
+# in this umbrella monorepo. The determinism gates that DO run every PR are the ArchUnit fitness laws
+# + the import guard (both part of `./gradlew build`).
+name: backend-ci
+run-name: backend-ci ${{ github.sha }}
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  test:
+    name: JDK21 tests + fitness gate + import guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: bookshelf
+          POSTGRES_USER: bookshelf
+          # Throwaway container credential matching the committed %dev/%test password — NOT a secret.
+          POSTGRES_PASSWORD: bookshelf_dev
+        # Host 5435 → container 5432, matching the committed datasource URL (127.0.0.1:5435).
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U bookshelf -d bookshelf"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Vendor-SDK import guard — no DB needed, fail fast.
+      - name: Observability import guard
+        run: ./gradlew observabilityImportGuard --no-daemon
+
+      # Full suite: @QuarkusTest boots the server → Flyway migrates V1 → integration tests + the
+      # ArchUnit fitness laws (fitness-tests) run under it. The %test profile supplies the throwaway
+      # DB password, so no secret injection is needed.
+      - name: Build + test
+        run: ./gradlew build --no-daemon
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: "backend/**/build/reports/tests/test/**"
+          if-no-files-found: ignore
+          retention-days: 7

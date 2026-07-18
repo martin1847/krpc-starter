@@ -1,0 +1,17 @@
+plugins {
+    // java-library exposes the `api` configuration so rpc-api transitively reaches consumers.
+    id 'java-library'
+    // krpc indexes interfaces/DTOs with jandex — no proto needed.
+    id 'org.kordamp.gradle.jandex' version '2.0.0'
+    // API-compatibility gate: the JapicmpTask is registered/configured in the root build.gradle.
+    id 'me.champeau.gradle.japicmp'
+}
+
+group = 'com.example'
+version = project.findProperty('bookshelfApiVersion') ?: '1.0.0'
+
+dependencies {
+    api "tech.krpc:rpc-api:${krpcVersion}"
+    // jakarta validation annotations (@NotBlank / @Min ...) used on request DTOs.
+    api 'jakarta.validation:jakarta.validation-api:3.1.0'
+}

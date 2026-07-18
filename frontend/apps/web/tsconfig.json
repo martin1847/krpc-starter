@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@krpc-starter/api": ["../../packages/api/src/index.ts"],
+      "@krpc-starter/app": ["../../packages/app/src/index.ts"],
+      "@krpc-starter/core": ["../../packages/core/src/index.ts"]
+    },
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "ES2024.Promise"],
+    "jsx": "preserve",
+    "jsxImportSource": "nativewind",
+    "allowJs": true,
+    "noEmit": true,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "isolatedModules": true
+  },
+  "include": ["next-env.d.ts", "nativewind-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

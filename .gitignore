@@ -1,0 +1,27 @@
+# ── Node / frontend ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+.next/
+.expo/
+.turbo/
+.pnpm-store/
+*.tsbuildinfo
+
+# ── Java / backend ───────────────────────────────────────────────────────────
+.gradle/
+build/
+bin/
+# Generated TS scratch output (local runs of scripts/gen-ts.sh). The committed, consumed client is
+# frontend/packages/api-client — regenerated + drift-checked by the api-client-freshness CI job.
+backend/generated-ts/
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.idea/
+.classpath
+.project
+.settings/
+
+# ── Logs / local env / secrets (never commit) ────────────────────────────────
+*.log
+.env
+.env*

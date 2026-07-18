@@ -1,0 +1,19 @@
+# gitleaks — secret scan gate for the whole monorepo (frontend/ + backend/). No credential, key, or
+# token ever lands in the committed tree. CI (secret-scan.yml) and local `gitleaks git .` share this.
+#
+# The only secret-shaped strings in the tree are THROWAWAY dev-database passwords (bookshelf_dev) in
+# backend/docker-compose.yml and backend/.../application.properties (%dev/%test) — development-only
+# and documented as such; real credentials are injected at runtime (QUARKUS_DATASOURCE_PASSWORD).
+title = "krpc-starter secret scan"
+
+[extend]
+# Inherit all of gitleaks' built-in rules (AWS/GCP/private keys/generic tokens...).
+useDefault = true
+
+[allowlist]
+description = "Placeholder / reference forms — by construction never a real secret value."
+regexTarget = "line"
+regexes = [
+  # GitHub Actions secret references (${{ secrets.XXX }}) are references, not values.
+  '''\$\{\{\s*secrets\.[A-Za-z0-9_]+\s*\}\}''',
+]

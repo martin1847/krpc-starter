@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "composite": false,
+    "baseUrl": ".",
+    "paths": {
+      "@krpc-starter/api": ["packages/api/src/index.ts"],
+      "@krpc-starter/api-client": ["packages/api-client/src/index.ts"],
+      "@krpc-starter/app": ["packages/app/src/index.ts"],
+      "@krpc-starter/core": ["packages/core/src/index.ts"]
+    }
+  }
+}
