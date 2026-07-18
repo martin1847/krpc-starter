@@ -12,19 +12,26 @@ generated from it.
 
 ## Onboarding checklist (run once, first session in a fresh clone)
 
-1. **krpc skill present & fresh?** This repo vendors the official krpc skill at
-   `.claude/skills/krpc/` (Claude Code loads it automatically). It is a snapshot — refresh it
-   whenever it might be stale (see the trigger below):
+1. **krpc skill present & fresh?** The official krpc skill is vendored at `.claude/skills/krpc/`
+   (Claude Code loads it automatically; other agents: read its `SKILL.md` first). It bundles the
+   full authoring handbook `references/SPEC.md` — the SoT for krpc semantics — plus native-image /
+   operations / MCP-bridge references. It is a snapshot of
+   <https://github.com/martin1847/krpc/tree/dev/skills/krpc>; refresh when stale (trigger below):
    ```bash
    rm -rf .claude/skills/krpc \
      && git clone --depth 1 -b dev --filter=blob:none --sparse https://github.com/martin1847/krpc /tmp/krpc-up \
      && git -C /tmp/krpc-up sparse-checkout set skills/krpc \
      && cp -R /tmp/krpc-up/skills/krpc .claude/skills/krpc && rm -rf /tmp/krpc-up
    ```
-2. **Toolchain sanity**: JDK 21 + Docker (backend), Node 20 + pnpm (frontend). Then
+2. **`rpcurl` installed?** The krpc debugging CLI (machine-JSON output, schema introspection,
+   validation errors with field names — friendlier than raw curl for both humans and agents).
+   Grab your platform binary + SHA256SUMS from
+   <https://github.com/martin1847/krpc-crates/releases/latest>, then e.g.
+   `rpcurl http://127.0.0.1:50051/bookshelf-server/Bookshelf/listBooks -d '{}'`.
+3. **Toolchain sanity**: JDK 21 + Docker (backend), Node 20 + pnpm (frontend). Then
    `docker compose -f backend/docker-compose.yml up -d` → `cd backend && ./gradlew build` →
    `cd frontend && pnpm i && pnpm typecheck`.
-3. **Read the gates before touching code**: "Verification recipes" below — every gate has a
+4. **Read the gates before touching code**: "Verification recipes" below — every gate has a
    negative probe; run one to see it bite.
 
 **Standing trigger — whenever you bump the krpc version** (`backend/gradle.properties`
@@ -124,14 +131,6 @@ Every gate here is *live* — prove it by making it fail, then reverting:
   `@krpc-starter/api` only, never `@krpc-starter/api-client` or a raw HTTP client. `packages/api`
   owns the transports (`bookshelf.ts` → local backend agent gateway; `rpc.ts`/`transport.ts` → the
   Hello MCP demo).
-
-## The krpc skill (pre-installed)
-
-This repo ships the official krpc skill at **`.claude/skills/krpc/`** (Claude Code loads it
-automatically when you touch krpc code; other agents: read `SKILL.md` there first). It bundles
-the full authoring handbook `references/SPEC.md` — the SoT for krpc semantics — plus native-image,
-operations, and MCP-bridge references. Upstream copy (sync from time to time):
-<https://github.com/martin1847/krpc/tree/dev/skills/krpc>.
 
 ## The five krpc rules (that bite first)
 
