@@ -40,7 +40,7 @@ GRADLE="${GRADLE:-./gradlew}"
 #     config and no class-validator runtime dep.
 for f in "${OUT_DIR}"/src/*.ts; do
   perl -0777 -i -pe '
-    s!(\S+\.ts)\s{2,}\d{4}-\d\d-\d\dT[0-9:+\-]+!$1!g;
+    s!(\S+\.ts)\s{2,}\d{4}-\d\d-\d\dT[0-9:+\-]+Z?!$1!g;
     s!import\s*\{[^}]*\}\s*from\s*\x27class-validator\x27;\s*\n!!g;
     s!^[ \t]*\@[A-Za-z]\w*(?:\([^)]*\))?[ \t]*\n!!mg;
   ' "$f"
