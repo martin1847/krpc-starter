@@ -1,0 +1,27 @@
+# krpc-starter
+
+> A whole-stack starter for [krpc](https://krpc.tech) demonstrating agent-era service
+> development: one contract-first Java `*-api` interface becomes a gRPC service, a
+> browser/agent-reachable HTTP gateway, an MCP tool surface an LLM can call, and a
+> generated, committed TypeScript client — protobuf-free. The `bookshelf` example walks
+> the full loop end to end, paired with a universal React Native + Web frontend in one
+> monorepo. Read this if you are building a contract-first agent backend / MCP gateway
+> microservice, or evaluating agent-native RPC for multi-agent-era server-side work.
+
+## Docs
+
+- [README](README.md): quickstart, the whole-stack contract seam, checks, graduation path.
+- [AGENTS.md](AGENTS.md): repository map, contract-is-SoT decision order, verification gates, the five krpc rules.
+
+## Contract example
+
+- [BookshelfService.java](backend/bookshelf-api/src/main/java/com/example/bookshelf/api/BookshelfService.java): the `@RpcService` interface + `@UnsafeWeb.AgentTool` MCP tool subset — the whole-stack source of truth.
+
+## Workflow
+
+- [gen-ts.sh](backend/scripts/gen-ts.sh): regenerate the committed `@krpc-starter/api-client` TypeScript client from the contract.
+
+## krpc
+
+- [krpc on GitHub](https://github.com/martin1847/krpc): the framework this starter is built on.
+- [krpc.tech](https://krpc.tech): krpc project site.
