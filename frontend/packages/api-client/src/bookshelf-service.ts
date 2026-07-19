@@ -4,7 +4,7 @@
 */
 import type { R, RpcService, MethodConfig as M } from 'krpc-base';
 
-import type { BookListResult, GetBookReq, BookDetail, ListBooksReq, BookCountResult } from './bookshelf-server-dto';
+import type { BookCountResult, BookDetail, BookListResult, GetBookReq, ListBooksReq } from './bookshelf-server-dto';
 
 const _ = 'Bookshelf/';
 

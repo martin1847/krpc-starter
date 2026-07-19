@@ -3,24 +3,6 @@
 * bookshelf-server-dto.ts
 */
 
-export class  GetBookReq {
-
-
-    // Book id (String carries a big integer) / 图书 ID（String 承载大整数）
-    bookId: string;
-
-	constructor(bookId: string) {
-		this.bookId = bookId;
-	}
-}
-
-export class  ListBooksReq {
-
-
-    // Optional author substring filter (case-insensitive; null/blank = all books) / 可选作者子串过滤（不区分大小写；null/空 = 全部）
-    authorContains?: string;
-}
-
 export const APP = 'bookshelf-server';
 
 export interface  BookCountResult {
@@ -63,3 +45,22 @@ export interface  BookListResult {
     //// Books (ordered by title) / 图书列表（按书名排序）
     list: Array<BookDetail>;
 }
+
+export class  GetBookReq {
+
+
+    // Book id (String carries a big integer) / 图书 ID（String 承载大整数）
+    bookId: string;
+
+	constructor(bookId: string) {
+		this.bookId = bookId;
+	}
+}
+
+export class  ListBooksReq {
+
+
+    // Optional author substring filter (case-insensitive; null/blank = all books) / 可选作者子串过滤（不区分大小写；null/空 = 全部）
+    authorContains?: string;
+}
+

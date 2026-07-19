@@ -45,45 +45,9 @@ public final class GenTsMain {
         Gen.genTypescript(app, outDir);
         normalizeNumericPrimitives(outDir);
         emitMissingEmptyDtos(outDir);
-        sortDtoTopLevelBlocks(outDir);
 
         System.out.println("[genTs] done: app=" + app + " basePkg=" + Gen.basePkg
                 + " out=" + outDir.getAbsolutePath());
-    }
-
-    /**
-     * Determinism patch: ext-rpc-gen emits DTO declarations in classpath-scan order, which varies
-     * across filesystems (local vs CI runner) and breaks the api-client freshness gate with
-     * reorder-only diffs. Sort the top-level `export …` blocks of each *-dto.ts by name.
-     * (Reported upstream; removable once the generator sorts its own emission.)
-     */
-    static void sortDtoTopLevelBlocks(File dir) {
-        File[] files = dir.listFiles((d, n) -> n.endsWith("-dto.ts"));
-        if (files == null) {
-            return;
-        }
-        for (File f : files) {
-            try {
-                String src = Files.readString(f.toPath(), StandardCharsets.UTF_8);
-                String[] parts = src.split("(?m)(?=^export )");
-                if (parts.length < 3) {
-                    continue; // header only, or a single block — nothing to sort
-                }
-                String header = parts[0];
-                java.util.List<String> blocks = new java.util.ArrayList<>(
-                        java.util.Arrays.asList(parts).subList(1, parts.length));
-                blocks.sort(java.util.Comparator.comparing(b -> b.lines().findFirst().orElse(b)));
-                String body = blocks.stream().map(String::stripTrailing)
-                        .collect(java.util.stream.Collectors.joining("\n\n"));
-                String fixed = header.stripTrailing() + "\n\n" + body + "\n";
-                if (!fixed.equals(src)) {
-                    Files.writeString(f.toPath(), fixed, StandardCharsets.UTF_8);
-                    System.out.println("[genTs] sorted top-level dto blocks in " + f.getName());
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
     }
 
     /** Rewrite Java numeric primitives (int/long/short/byte/float/double) in type position to TS number. */
