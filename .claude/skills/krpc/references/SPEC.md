@@ -150,6 +150,17 @@ public class Book {            // Book.java:10-17
 - Generic DTOs are supported (`PagedQuery<T>`, `PagedList<T>`, `List<T>`); the
   server resolves type args by reflection on the method signature.
 
+### Collection fields — use `List<T>`, not arrays
+- Use **`List<T>`** for a sequence field; do **not** use Java arrays. Arrays are
+  **UNSUPPORTED**: the contract meta does not model array component types, so generation
+  would reference an undeclared type. The meta scan **fails fast** on an object-array field
+  (`Zebra[]`, `String[]`), naming the declaring DTO + field (`RpcMetaServiceImpl.checkFieldContract`).
+- **Exemption:** a **single-dimension** array of a *primitive* (`byte[]`, `int[]`) is allowed
+  — the binary/scalar-payload convention (`test-api/.../dto/Img.java:30`). **Multi-dimensional**
+  arrays (`int[][]`) and object arrays are UNSUPPORTED — use `List<T>` / `List<List<T>>`.
+- **`Map<K,V>` is NOT RECOMMENDED** — generated client code loses readability; model the shape
+  as an explicit DTO class. Not an error: the scan logs a WARN (deduped per DTO field).
+
 ### Deserialization is lenient
 `FAIL_ON_UNKNOWN_PROPERTIES=false` — extra fields from clients are tolerated
 (forward compatibility). `JavaTimeModule` auto-registers if jsr310 is present.
@@ -566,6 +577,18 @@ refs below point into that file). Day-1 checklist for a consumer service:
 - [ ] Datasource config present at runtime (SIGSEGV otherwise) — §13.3.
 - [ ] `ext-rpc` / `ext-mybatis` extensions on the build (DTO reflection) — §13.5.
 
+**Known issue — Caffeine + native reflection (field experience, consumer ecosystem 2026-07-19).**
+A krpc native-image service using Caffeine's **bounded** cache path (a builder with bounded
+features — `weakKeys`/`softValues`/`expireAfter*`/`maximumSize`/etc.) hits a dynamic
+class resolution: Caffeine selects a pre-generated internal implementation class by its
+*feature-encoded name* (names like `SSMSW`/`PSWMS`; the concrete class **varies** with the
+feature combination). Green on the JVM, `ClassNotFoundException` at native runtime. Remedy:
+register the concrete generated class(es) for reflection (`@RegisterForReflection(classNames
+= …)` or reflect-config), and **re-verify whenever the feature combination changes** —
+adding/removing features changes the encoded name (numeric capacity/duration values do not).
+(Mechanism: method-handle-based dynamic class lookup in Caffeine 3.x, not `Class.forName`;
+the exact class-name letters are field-reported, not pinned to a Caffeine version here.)
+
 ---
 
 ## 14. Contract evolution
@@ -693,7 +716,19 @@ Branch on the failure *shape* (gRPC/rpcurl path):
 HTTP face the rejected *value* is stripped even for validation errors (field path + constraint
 only, PII in the log — §12.4).
 
-### 15.5 Consuming releases & smoke example → reference
+### 15.5 Soft errors are a consumer UX obligation
+
+> Consumer field case (2026-07-19); external doctrine, not a krpc-code fact.
+
+A service returning a "processing / will converge later" soft error (UNAVAILABLE-class)
+imposes an obligation on the **consumer**: translate it into a user-visible **intermediate
+state** + **idempotent re-entry** — never toast the raw error while leaving the UI state
+unchanged. A user who sees a bare error retries; if the request already took effect that is
+a double-submit hazard. Reference shape: the action moves to an intermediate status (e.g. an
+order → `refunding`), the soft error is mapped to **success semantics** for the caller,
+retries are idempotent, and a **reconcile worker** converges the final state.
+
+### 15.6 Consuming releases & smoke example → reference
 
 `-rc` consumption routes (mavenLocal / vendored file-repo / Nexus — never shadows a Central
 GA) and the LH end-to-end smoke script → `skills/krpc/references/operations.md`.
@@ -728,9 +763,13 @@ Three server faces, three ports — do not conflate.
 
 | face | config key | default | speaks |
 | --- | --- | --- | --- |
-| gRPC gateway | `rpc.server.port` | **50051** (`RpcConstants.java:31` `DEFAULT_PORT`) | HTTP/2 gRPC (use `rpcurl`) |
+| gRPC gateway | `rpc.server.port` | **50051** (`RpcConstants.java:33` `DEFAULT_PORT`) | HTTP/2 gRPC (use `rpcurl`) |
 | krpc HTTP (agent/MCP) | `http.port` | **8080** (`HttpHandlerExpose.java:36`, `HttpServer.java:32`) | plain HTTP/1.1 JSON (`/agent/*`, `/mcp`) |
 | Quarkus REST | `quarkus.http.port` | **8080** (Quarkus default) | consumer's own Vert.x/REST |
+
+All services keep the **same** default gRPC port (**50051**) — distinguish instances by K8s
+**service name**, not by hand-assigning an incrementing port per app; the `50051`–`50058`
+per-app style is single-machine legacy that new projects must not copy.
 
 The krpc HTTP face is **its own netty server** (`new HttpServer(this, port)`,
 `HttpHandlerExpose.java:86`), separate from Quarkus's Vert.x HTTP — both default to **8080**,
