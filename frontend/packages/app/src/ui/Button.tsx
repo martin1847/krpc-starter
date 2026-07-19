@@ -6,8 +6,10 @@ import { colors } from '../features/theme';
  * Button primitive (three variants): primary (filled), secondary (outlined), text (plain).
  *
  * The shape (`rounded-full flex-row items-center justify-center gap-2`) is fixed; sizing/padding
- * is passed through via `className`. `loading` prepends an ActivityIndicator; `disabled` uses a
- * muted fill/label for the primary variant.
+ * is passed through via `className`. `loading` prepends an ActivityIndicator AND blocks interaction
+ * (guards against double submits), but does NOT change the colors — the fill/label are muted only by
+ * `disabled`. So a busy button keeps its brand fill + spinner while non-interactive, without going
+ * grey (pass `loading` alone; reserve `disabled` for a genuinely unavailable action).
  */
 export type ButtonVariant = 'primary' | 'secondary' | 'text';
 
@@ -64,7 +66,7 @@ export function Button({
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || loading}
       testID={testID}
       accessibilityLabel={accessibilityLabel}
       className={container}
