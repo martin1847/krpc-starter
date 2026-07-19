@@ -2,10 +2,27 @@
 
 > Working name — pick your own when you fork this.
 
-A **whole-stack starter for [krpc](https://krpc.tech)**: a universal React Native + Web frontend and
-a contract-first krpc backend, in one monorepo, connected by a **generated, committed TypeScript
-client**. It shows the engineering pattern around a krpc service end to end — the *contract* is the
-single source of truth, and the frontend consumes a client generated from it.
+**One Java interface → gRPC + MCP tools + typed clients.** krpc-starter is a whole-stack starter
+for [krpc](https://krpc.tech) built for **agent-era service development**: you write one
+contract-first Java `*-api` interface and it becomes, at once, a gRPC service, a browser/agent-
+reachable HTTP gateway, an **MCP tool surface** an LLM can call, and a generated, committed
+TypeScript client — protobuf-free, with no hand-written client. This is a **contract-first agent
+backend**: the *contract* is the single source of truth, and the server impl, MCP tools, typed
+client, and frontend screens all derive from it.
+
+The `bookshelf` example proves it end to end. The same `BookshelfService` interface serves gRPC
+on `:50051`, answers the frontend over the HTTP agent gateway, and — with `KRPC_MCP=true` —
+exposes a curated MCP tool subset (`getBook`, `listBooks`) at `POST /mcp` that any MCP client or
+LLM can discover and call, while `countBooks` deliberately stays off the tool surface. That is
+**agent-native RPC**: your service interface *is* the tool surface, so shipping an **MCP gateway
+microservice** is a build output, not a bespoke integration. It's a working template for
+**multi-agent-era server-side / microservice development** — an **agent-OS-era coding
+architecture** where the primary caller may be an autonomous agent, not just a browser.
+
+The repo pairs that backend with a universal React Native + Web frontend, in one monorepo,
+connected by a **generated, committed TypeScript client**, so the whole loop is learnable in one
+clone — the *contract* is the single source of truth, and the frontend consumes a client
+generated from it.
 
 - **`frontend/`** — a universal RN + Web app (iOS / Android / mobile web). One codebase renders on
   native (Expo) and web (Next.js + react-native-web), sharing screens, a design system, and a single
